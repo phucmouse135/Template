@@ -14,16 +14,18 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 public class RedisConfig {
 
     @Bean
-    public RedisTemplate<String, Object> deviceStateRedisTemplate(RedisConnectionFactory connectionFactory) {
-        RedisTemplate<String, Object> template = new RedisTemplate<>();
+    public RedisTemplate<String, DeviceStateDTO> deviceStateRedisTemplate(
+            RedisConnectionFactory connectionFactory) {
+
+        RedisTemplate<String, DeviceStateDTO> template = new RedisTemplate<>();
         template.setConnectionFactory(connectionFactory);
 
-        // Sử dụng StringRedisSerializer cho khóa (Key)
+        // Key Serializer: Use String for the device UID keys
         template.setKeySerializer(new StringRedisSerializer());
 
-        // Sử dụng Jackson2JsonRedisSerializer cho giá trị (Value) để lưu DTO dưới dạng JSON
-        Jackson2JsonRedisSerializer<Object> jsonSerializer =
-                new Jackson2JsonRedisSerializer<>(Object.class);
+        // Value Serializer: Use Jackson to serialize DeviceStateDTO into JSON
+        Jackson2JsonRedisSerializer<DeviceStateDTO> jsonSerializer =
+                new Jackson2JsonRedisSerializer<>(DeviceStateDTO.class);
         template.setValueSerializer(jsonSerializer);
 
         template.afterPropertiesSet();

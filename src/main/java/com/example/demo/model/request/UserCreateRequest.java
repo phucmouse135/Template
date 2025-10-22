@@ -22,6 +22,10 @@ public class UserCreateRequest {
     @Size(max = 255, message = "Username max length is 255")
     private String username;
 
+    @NotBlank(message = "Password cannot be blank")
+    @Size(min = 8, max = 100, message = "Password length must be between 8 and 100")
+    private String password;
+
     @Size(max = 1024, message = "Avatar URL max length is 1024")
     private String avatarUrl;
 
@@ -32,4 +36,7 @@ public class UserCreateRequest {
     @NotBlank(message = "Provider ID cannot be blank")
     @Size(max = 255, message = "Provider ID max length is 255")
     private String providerId;
+
+    // roleIds
+    private java.util.Set<String> roleIds;
 }

@@ -5,6 +5,8 @@ import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
 
+import java.util.Set;
+
 @EqualsAndHashCode(callSuper = true)
 @Entity
 @Table(name = "users", uniqueConstraints = {
@@ -31,6 +33,10 @@ public class UserEntity extends BaseEntity {
     @Schema(description = "Tên hiển thị của người dùng.", example = "john_doe")
     private String username;
 
+    @Column(nullable = false)
+    @Schema(description = "Mật khẩu đã được mã hóa của người dùng.", example = "$2a$10$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6L5r9g6r5o6")
+    private String password;
+
     @Column(name = "avatar_url", length = 1024)
     @Schema(description = "URL ảnh đại diện của người dùng.", example = "https://example.com/avatar.jpg")
     private String avatarUrl;
@@ -42,4 +48,11 @@ public class UserEntity extends BaseEntity {
     @Column(name = "provider_id", nullable = false)
     @Schema(description = "ID người dùng do nhà cung cấp dịch vụ xác thực cung cấp.", example = "1234567890")
     private String providerId;
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "users_roles",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "role_name"))
+    Set<RoleEntity> roles;
 }

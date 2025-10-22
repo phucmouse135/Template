@@ -1,6 +1,7 @@
 package com.example.demo.service.impl;
 
 import com.example.demo.dto.DeviceStateDTO;
+import com.example.demo.dto.TelemetryLogDto;
 import com.example.demo.model.entity.DeviceEntity;
 import com.example.demo.model.entity.TelemetryLog;
 import com.example.demo.repository.DeviceRepository;
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Service;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -72,5 +74,26 @@ public class TelemetryServiceImpl implements TelemetryService {
             // Log lỗi mà không làm dừng luồng MQTT
             log.error("ASYNCHRONOUS ERROR: Failed to save telemetry log for {}. {}", deviceUid, e.getMessage());
         }
+    }
+
+    @Override
+    public List<TelemetryLogDto> getHistory(String deviceUid, Instant from, Instant to) {
+        // Tìm thiết bị theo deviceUid
+        Optional<DeviceEntity> deviceOpt = deviceRepository.findByDeviceUid(deviceUid);
+        if (deviceOpt.isEmpty()) {
+            log.warn("Device with UID {} not found when fetching telemetry history.", deviceUid);
+            throw new RuntimeException("Device not found.");
+        }
+        DeviceEntity device = deviceOpt.get();
+
+
+        // Truy vấn lịch sử từ repository
+        List<TelemetryLog> logs = telemetryLogRepository
+                .findAllByDeviceAndLogTimeBetween(device, from, to);
+
+        // Chuyển đổi sang DTO
+        return logs.stream()
+                .map(telemetryMapper::toDto)
+                .toList();
     }
 }
