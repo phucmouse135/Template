@@ -14,7 +14,6 @@ public interface TelemetryMapper {
 
     TelemetryLog toEntity(DeviceStateDTO.SensorData dto);
 
-    DeviceStateDTO.SensorData toDto(DeviceStateDTO entity);
 
 
 }

@@ -38,8 +38,8 @@ public class TelemetryLog extends  BaseEntity {
     @Column(name = "air_humidity", precision = 5, scale = 2)
     private BigDecimal airHumidity;
 
-    @Column(name = "light_level", precision = 10, scale = 2)
-    private BigDecimal lightLevel;
+    @Column(name = "light", precision = 10, scale = 2)
+    private BigDecimal light;
 
     @Column(name = "soil_moisture", precision = 5, scale = 2)
     private BigDecimal soilMoisture;

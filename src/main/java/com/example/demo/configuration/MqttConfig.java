@@ -33,6 +33,12 @@ public class MqttConfig {
     @Value("${mqtt.inbound-topic}")
     private String inboundTopic; // "smartgarden/device/+/+"
 
+    @Value("${mqtt.username}")
+    private String username;
+
+    @Value("${mqtt.password}")
+    private String password;
+
     /**
      * 1. Factory tạo MqttClient
      * Cấu hình các thông số kết nối cơ bản đến Broker.
@@ -44,6 +50,11 @@ public class MqttConfig {
         options.setServerURIs(new String[]{brokerUrl});
 
         factory.setConnectionOptions(options);
+
+        options.setUserName(username);
+        options.setPassword(password.toCharArray());
+        options.setCleanSession(true); // Đảm bảo session sạch khi kết nối
+        options.setAutomaticReconnect(true); // Tự động kết nối lại
         // Có thể cấu hình username/password nếu broker yêu cầu
         return factory;
     }

@@ -1,6 +1,5 @@
 package com.example.demo.controller;
 
-import com.example.demo.configuration.CustomUserDetails;
 import com.example.demo.dto.CommandRequestDTO;
 import com.example.demo.dto.DeviceDto;
 import com.example.demo.dto.DeviceStateDTO;
@@ -14,7 +13,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.nio.file.AccessDeniedException;
@@ -27,36 +25,17 @@ import java.util.List;
 @Slf4j
 @Tag(name = "Device Controller")
 public class DeviceController {
-    private final UserService userService;
     private final DeviceService deviceService;
     private final DeviceStateService deviceStateService; // Cache Redis
     private final TelemetryService telemetryService;     // Lịch sử MySQL
     private final CommandService commandService;
 
-    @Operation(summary = "Đăng ký (claim) một thiết bị mới bằng UID của nó")
-    @PostMapping("/claim")
-    public ResponseEntity<ApiResponse<DeviceDto>> claimDevice(
-            @RequestParam String deviceUid,
-            // Lấy thông tin người dùng đã đăng nhập từ Security Context
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
 
-        DeviceDto DeviceDto = deviceService.claimDevice(deviceUid, userDetails.getUser());
-
-        return ResponseEntity.ok(ApiResponse.<DeviceDto>builder()
-                .code(200)
-                .message("Device claimed successfully.")
-                .data(DeviceDto)
-                .build());
-    }
-
-    // 2. ENDPOINT: Lấy danh sách các thiết bị CỦA TÔI
-    @Operation(summary = "Lấy danh sách các thiết bị mà người dùng hiện tại sở hữu")
+    @Operation(summary = "Lấy danh sách các thiết bị")
     @GetMapping
-    public ResponseEntity<ApiResponse<List<DeviceDto>>> getMyDevices(
-            // Lấy ID người dùng đã đăng nhập
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
+    public ResponseEntity<ApiResponse<List<DeviceDto>>> getMyDevices() {
 
-        List<DeviceDto> devices = deviceService.getDevicesByUser(userDetails.getId());
+        List<DeviceDto> devices = deviceService.getAllDevices();
 
         return ResponseEntity.ok(ApiResponse.<List<DeviceDto>>builder()
                 .code(200)
@@ -69,11 +48,7 @@ public class DeviceController {
     @Operation(summary = "Lấy trạng thái TỨC THỜI (real-time) của thiết bị (từ Redis Cache)")
     @GetMapping("/{deviceUid}/state")
     public ResponseEntity<ApiResponse<DeviceStateDTO>> getDeviceState(
-            @PathVariable String deviceUid,
-            @AuthenticationPrincipal CustomUserDetails userDetails) throws AccessDeniedException {
-
-        // BẢO MẬT: Kiểm tra quyền sở hữu trước khi truy cập
-        deviceService.validateDeviceOwnership(deviceUid, userDetails.getId());
+            @PathVariable String deviceUid) throws AccessDeniedException {
 
         DeviceStateDTO state = deviceStateService.getState(deviceUid);
 
@@ -89,12 +64,8 @@ public class DeviceController {
     @GetMapping("/{deviceUid}/history")
     public ResponseEntity<ApiResponse<List<TelemetryLogDto>>> getDeviceHistory(
             @PathVariable String deviceUid,
-            @AuthenticationPrincipal CustomUserDetails userDetails,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to) throws AccessDeniedException {
-
-        // BẢO MẬT: Kiểm tra quyền sở hữu
-        deviceService.validateDeviceOwnership(deviceUid, userDetails.getId());
 
         // Cần giả định phương thức này tồn tại trong TelemetryService
         List<TelemetryLogDto> history = telemetryService.getHistory(deviceUid, from, to);
@@ -111,11 +82,8 @@ public class DeviceController {
     @PostMapping("/{deviceUid}/command")
     public ResponseEntity<ApiResponse<Void>> sendCommand(
             @PathVariable String deviceUid,
-            @Valid @RequestBody CommandRequestDTO command,
-            @AuthenticationPrincipal CustomUserDetails userDetails) throws AccessDeniedException {
+            @Valid @RequestBody CommandRequestDTO command) throws AccessDeniedException {
 
-        // BẢO MẬT: Kiểm tra quyền sở hữu
-        deviceService.validateDeviceOwnership(deviceUid, userDetails.getId());
 
         commandService.sendCommand(deviceUid, command);
 
@@ -123,6 +91,57 @@ public class DeviceController {
         return ResponseEntity.accepted().body(ApiResponse.<Void>builder()
                 .code(202)
                 .message("Command sent successfully to device.")
+                .build());
+    }
+
+    //DeviceDto createDevice(DeviceDto deviceDto)
+    @Operation(summary = "Tạo thiết bị mới")
+    @PostMapping
+    public ResponseEntity<ApiResponse<DeviceDto>> createDevice(
+            @Valid @RequestBody DeviceDto deviceDto) {
+        DeviceDto createdDevice = deviceService.createDevice(deviceDto);
+        return ResponseEntity.ok(ApiResponse.<DeviceDto>builder()
+                .code(200)
+                .message("Device created successfully.")
+                .data(createdDevice)
+                .build());
+    }
+
+    //DeviceDto updateDevice(String deviceUid, DeviceDto deviceDto)
+    @Operation(summary = "Cập nhật thông tin thiết bị")
+    @PutMapping("/{deviceUid}")
+    public ResponseEntity<ApiResponse<DeviceDto>> updateDevice(
+            @PathVariable String deviceUid,
+            @Valid @RequestBody DeviceDto deviceDto) {
+        DeviceDto updatedDevice = deviceService.updateDevice(deviceUid, deviceDto);
+        return ResponseEntity.ok(ApiResponse.<DeviceDto>builder()
+                .code(200)
+                .message("Device updated successfully.")
+                .data(updatedDevice)
+                .build());
+    }
+
+    //void softDeleteDevice(String deviceUid)
+    @Operation(summary = "Xóa mềm thiết bị")
+    @DeleteMapping("/{deviceUid}")
+    public ResponseEntity<ApiResponse<Void>> softDeleteDevice(
+            @PathVariable String deviceUid) {
+        deviceService.softDeleteDevice(deviceUid);
+        return ResponseEntity.ok(ApiResponse.<Void>builder()
+                .code(200)
+                .message("Device soft deleted successfully.")
+                .build());
+    }
+
+    // void restoreDevice(String deviceUid)
+    @Operation(summary = "Khôi phục thiết bị đã xóa mềm")
+    @PostMapping("/{deviceUid}/restore")
+    public ResponseEntity<ApiResponse<Void>> restoreDevice(
+            @PathVariable String deviceUid) {
+        deviceService.restoreDevice(deviceUid);
+        return ResponseEntity.ok(ApiResponse.<Void>builder()
+                .code(200)
+                .message("Device restored successfully.")
                 .build());
     }
 }

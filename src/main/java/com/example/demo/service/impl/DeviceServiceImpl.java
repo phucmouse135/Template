@@ -4,7 +4,6 @@ import com.example.demo.dto.DeviceDto;
 import com.example.demo.exception.AppException;
 import com.example.demo.exception.ErrorCode;
 import com.example.demo.model.entity.DeviceEntity;
-import com.example.demo.model.entity.UserEntity;
 import com.example.demo.repository.DeviceRepository;
 import com.example.demo.service.DeviceService;
 import com.example.demo.utils.mapper.DeviceMapper;
@@ -25,66 +24,53 @@ public class DeviceServiceImpl implements DeviceService {
     private final DeviceRepository deviceRepository;
     private final DeviceMapper deviceMapper; // MapStruct Mapper
 
-    /**
-     * 1. Đăng ký (Claim) một thiết bị mới bằng UID của nó.
-     * Kiểm tra xem thiết bị đã được claim chưa và gán cho người dùng hiện tại.
-     */
-    @Transactional
-    public DeviceDto claimDevice(String deviceUid, UserEntity user) {
-
-        // Tìm kiếm thiết bị theo UID
-        Optional<DeviceEntity> existingDevice = deviceRepository.findByDeviceUid(deviceUid);
-
-        if (existingDevice.isPresent()) {
-            DeviceEntity device = existingDevice.get();
-            // Thiết bị đã tồn tại, kiểm tra xem nó đã có chủ chưa
-            if (device.getUser() != null) {
-                if (device.getUser().getId().equals(user.getId())) {
-                    // Thiết bị đã được claim bởi chính người dùng này, trả về thông tin
-                    return deviceMapper.toDto(device);
-                }
-                // Thiết bị đã bị người khác claim
-                throw new AppException(ErrorCode.DEVICE_ALREADY_CLAIMED);
-            }
-
-            // Thiết bị tồn tại nhưng chưa có chủ (Chế độ đăng ký/tạo ban đầu)
-            device.setUser(user);
-            device.setName("My Smart Garden - " + deviceUid.substring(deviceUid.length() - 2)); // Tên mặc định
-            deviceRepository.save(device);
-            return deviceMapper.toDto(device);
-        } else {
-            // Thiết bị chưa từng tồn tại (Tạo mới trong quá trình claim)
-            DeviceEntity newDevice = new DeviceEntity();
-            newDevice.setDeviceUid(deviceUid);
-            newDevice.setName("New Device - " + deviceUid);
-            newDevice.setUser(user);
-
-            DeviceEntity savedDevice = deviceRepository.save(newDevice);
-            return deviceMapper.toDto(savedDevice);
-        }
-    }
 
     /**
      * 2. Lấy danh sách các thiết bị CỦA TÔI.
      */
-    public List<DeviceDto> getDevicesByUser(Long userId) {
-        List<DeviceEntity> devices = deviceRepository.findAllByUserId(userId);
+    public List<DeviceDto> getAllDevices() {
+        List<DeviceEntity> devices = deviceRepository.findAll();
         return devices.stream()
                 .map(deviceMapper::toDto)
                 .collect(Collectors.toList());
     }
 
-    /**
-     * 3. Kiểm tra quyền sở hữu thiết bị (QUAN TRỌNG CHO BẢO MẬT).
-     * Phải được gọi trước khi thực hiện bất kỳ thao tác nào với thiết bị (như lấy trạng thái, gửi lệnh).
-     */
-    public void validateDeviceOwnership(String deviceUid, Long userId) throws AccessDeniedException {
-        DeviceEntity device = deviceRepository.findByDeviceUid(deviceUid)
-                .orElseThrow(() -> new AppException(ErrorCode.DEVICE_NOT_FOUND));
+    @Transactional
+    @Override
+    public DeviceDto createDevice(DeviceDto deviceDto) {
+        log.info("createDevice");
+        DeviceEntity deviceEntity = deviceMapper.toEntity(deviceDto);
+        return deviceMapper.toDto(deviceRepository.save(deviceEntity));
+    }
 
-        // Kiểm tra xem user_id của thiết bị có khớp với userId đang request không
-        if (device.getUser() == null || !device.getUser().getId().equals(userId)) {
-            throw new AccessDeniedException("User is not authorized to access device " + deviceUid);
-        }
+    @Transactional
+    @Override
+    public DeviceDto updateDevice(String deviceUid, DeviceDto deviceDto) {
+        log.info("updateDevice");
+        DeviceEntity existingDevice = deviceRepository.findByDeviceUid(deviceUid)
+                .orElseThrow(() -> new AppException(ErrorCode.DEVICE_NOT_FOUND));
+        // Cập nhật các trường cần thiết
+        existingDevice.setName(deviceDto.getName() != null ? deviceDto.getName() : existingDevice.getName());
+        return deviceMapper.toDto(deviceRepository.save(existingDevice));
+    }
+
+    @Transactional
+    @Override
+    public void softDeleteDevice(String deviceUid) {
+        log.info("softDeleteDevice");
+        DeviceEntity existingDevice = deviceRepository.findByDeviceUid(deviceUid)
+                .orElseThrow(() -> new AppException(ErrorCode.DEVICE_NOT_FOUND));
+        deviceRepository.softDeleteByIds(List.of(existingDevice.getId()));
+        deviceRepository.save(existingDevice);
+    }
+
+    @Transactional
+    @Override
+    public void restoreDevice(String deviceUid) {
+        log.info("restoreDevice");
+        DeviceEntity existingDevice = deviceRepository.findByDeviceUid(deviceUid)
+                .orElseThrow(() -> new AppException(ErrorCode.DEVICE_NOT_FOUND));
+        deviceRepository.restoreById(existingDevice.getId());
+        deviceRepository.save(existingDevice);
     }
 }

@@ -18,11 +18,6 @@ public class DeviceEntity extends BaseEntity{
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Liên kết với User
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id")
-    private UserEntity user;
-
     @Column(name = "device_uid", nullable = false, unique = true, length = 100)
     private String deviceUid;
 

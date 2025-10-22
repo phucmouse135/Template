@@ -17,8 +17,6 @@ public class DeviceDto {
     @Schema(description = "ID của thiết bị", example = "1")
     private Long id;
 
-    @Schema(description = "ID của người sở hữu thiết bị", example = "101")
-    private Long userId;
 
     @NotBlank(message = "Device UID không được để trống")
     @Size(max = 100, message = "Device UID tối đa 100 ký tự")

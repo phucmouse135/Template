@@ -9,6 +9,7 @@ public class GlobalHandleException {
 
     @ExceptionHandler(value = Exception.class)
     public ErrorCode handleException(Exception e) {
+        e.printStackTrace();
         return ErrorCode.INTERNAL_SERVER_ERROR;
     }
 

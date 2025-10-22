@@ -1,7 +1,6 @@
 package com.example.demo.service;
 
 import com.example.demo.dto.DeviceDto;
-import com.example.demo.model.entity.UserEntity;
 import org.springframework.stereotype.Service;
 
 import java.nio.file.AccessDeniedException;
@@ -9,7 +8,9 @@ import java.util.List;
 
 @Service
 public interface DeviceService {
-    public DeviceDto claimDevice(String deviceUid, UserEntity user);
-    List<DeviceDto> getDevicesByUser(Long userId);
-    public void validateDeviceOwnership(String deviceUid, Long userId) throws AccessDeniedException;
+    List<DeviceDto> getAllDevices();
+    public DeviceDto createDevice(DeviceDto deviceDto);
+    public DeviceDto updateDevice(String deviceUid, DeviceDto deviceDto);
+    public void softDeleteDevice(String deviceUid);
+    public void restoreDevice(String deviceUid);
 }

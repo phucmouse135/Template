@@ -14,7 +14,4 @@ public interface DeviceRepository extends  BaseRepository<DeviceEntity, Long> {
     @Query("SELECT d FROM DeviceEntity d WHERE d.deviceUid = ?1")
     Optional<DeviceEntity> findByDeviceUid(String deviceUid);
 
-    // findAllByUserId
-    @Query("SELECT d FROM DeviceEntity d WHERE d.user.id = ?1")
-    List<DeviceEntity> findAllByUserId(Long userId);
 }

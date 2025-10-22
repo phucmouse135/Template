@@ -1,6 +1,10 @@
 package com.example.demo.service;
 
 import com.example.demo.dto.DeviceStateDTO;
+import com.example.demo.model.entity.TelemetryLog;
+import com.example.demo.repository.TelemetryRepository;
+import com.example.demo.utils.mapper.TelemetryMapper;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -15,6 +19,8 @@ import java.util.Optional;
 public class DeviceStateService {
     private final RedisTemplate<String, DeviceStateDTO> deviceStateRedisTemplate;
     private final ObjectMapper objectMapper; // Dùng để parse JSON payload từ MQTT
+    TelemetryRepository telemetryRepository;
+    TelemetryMapper telemetryMapper;
 
     // Prefix cho Key Redis
     private static final String REDIS_KEY_PREFIX = "device:state:";
@@ -31,12 +37,18 @@ public class DeviceStateService {
         String key = createKey(deviceUid);
         DeviceStateDTO state = deviceStateRedisTemplate.opsForValue().get(key);
 
-        // Trả về DTO nếu tìm thấy, hoặc một trạng thái mặc định/rỗng (tùy vào yêu cầu)
-        return Optional.ofNullable(state).orElseGet(() -> DeviceStateDTO.builder()
-                .deviceUid(deviceUid)
-                .status("UNKNOWN")
-                .lastSeen(0)
-                .build());
+        // Nếu không có trạng thái trong Redis, trả về trạng thai mặc định
+        if (state == null) {
+            state = new DeviceStateDTO();
+            state.setDeviceUid(deviceUid);
+            state.setStatus("offline");
+            state.setSensors(new DeviceStateDTO.SensorData());
+            log.debug("No existing state in Redis for deviceUid={}. Returning default state: {}", deviceUid, state);
+            return state;
+        }
+
+        log.debug("Retrieved device state from Redis for deviceUid={}: {}", deviceUid, state);
+        return state;
     }
 
     public DeviceStateDTO updateStateFromMqtt(String deviceUid, String messageType, String payload) {
@@ -46,15 +58,55 @@ public class DeviceStateService {
         try {
             switch (messageType.toLowerCase()) {
                 case "telemetry":
-                    // Giả định payload là JSON chứa dữ liệu cảm biến
-                    DeviceStateDTO.SensorData sensorData = objectMapper.readValue(payload, DeviceStateDTO.SensorData.class);
-                    currentState.setSensors(sensorData);
-                    currentState.setLastSeen(System.currentTimeMillis());
+                    try {
+                        // 1. Đọc payload thành một cây JSON chung
+                        JsonNode rootNode = objectMapper.readTree(payload);
+
+                        // 2. Lấy nút (node) con có tên là "sensors"
+                        JsonNode sensorsNode = rootNode.get("sensors");
+
+                        if (sensorsNode != null) {
+                            // 3. CHỈ chuyển đổi nút "sensors" thành đối tượng SensorData
+                            DeviceStateDTO.SensorData sensorData = objectMapper.treeToValue(sensorsNode, DeviceStateDTO.SensorData.class);
+
+                            // 4. Cập nhật trạng thái
+                            currentState.setSensors(sensorData);
+                            currentState.setLastSeen(System.currentTimeMillis());
+
+                        } else {
+                            // Ghi log nếu payload không có đối tượng "sensors"
+                            log.warn("Telemetry payload không chứa đối tượng 'sensors': {}", payload);
+                        }
+
+                    } catch (Exception e) {
+                        log.error("Lỗi parse JSON cho 'telemetry': {}", e.getMessage());
+                    }
                     break;
                 case "status":
-                    // Giả định payload là "ONLINE" hoặc "OFFLINE"
-                    currentState.setStatus(payload);
+                    try {
+                        // Dùng readValue để parse JSON, ví dụ: {"status": "online"}
+                        DeviceStateDTO statusUpdate = objectMapper.readValue(payload, DeviceStateDTO.class);
+                        if (statusUpdate.getStatus() != null) {
+                            currentState.setStatus(statusUpdate.getStatus());
+                        }
+                    } catch (Exception e) {
+                        // Fallback nếu payload là String thô "online" (như code cũ)
+                        log.warn("Payload 'status' không phải JSON, sử dụng payload thô. Payload: {}", payload);
+                        currentState.setStatus(payload);
+                    }
                     currentState.setLastSeen(System.currentTimeMillis());
+                    break;
+                case "state":
+                    // Giả định payload là JSON: {"control_mode": "AUTO", "pump_state": "OFF"}
+                    // ObjectMapper (nếu là Bean của Spring) sẽ tự động xử lý
+                    // snake_case (control_mode) sang camelCase (controlMode).
+
+                    // Sử dụng readerForUpdating để "merge" payload vào đối tượng currentState
+                    // mà không làm null các trường khác (như sensors, status).
+                    objectMapper.readerForUpdating(currentState).readValue(payload);
+
+                    currentState.setLastSeen(System.currentTimeMillis());
+                    log.debug("Processed 'state' update for deviceUid={}", deviceUid);
                     break;
                 // Xử lý các loại messageType khác nếu cần
                 default:
