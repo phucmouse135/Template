@@ -1,3 +1,4 @@
+# Template
 Đây là một file README.md chi tiết, mô tả toàn bộ dự án IoT Vườn Thông Minh, bao gồm kiến trúc, công nghệ, và hướng dẫn chạy thử.
 
 -----
