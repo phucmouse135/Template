@@ -22,7 +22,7 @@ public class CommandService {
      * @param deviceUid ID duy nhất của thiết bị đích.
      * @param command CommandRequestDTO chứa hành động và payload.
      */
-    public void sendCommand(String deviceUid, CommandRequestDTO command) {
+    synchronized public void sendCommand(String deviceUid, CommandRequestDTO command) {
 
         // 1. Tạo payload từ CommandRequestDTO
         // Tạo một cấu trúc dữ liệu đơn giản hơn để gửi qua MQTT nếu cần,

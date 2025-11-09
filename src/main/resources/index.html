@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Vườn Thông Minh</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* CSS cho hiệu ứng mic "đang nghe" */
+        .mic-active {
+            animation: pulse 1.5s infinite;
+            background-color: #ef4444; /* red-500 */
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { box-shadow: 0 0 0 12px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+        /* Style cho thanh cuộn */
+        #chat-box::-webkit-scrollbar { width: 6px; }
+        #chat-box::-webkit-scrollbar-thumb { background-color: #9ca3af; border-radius: 3px; }
+    </style>
+</head>
+<body class="bg-gray-100 font-sans">
+
+<div class="container mx-auto max-w-lg p-4 min-h-screen flex flex-col">
+
+    <header class="bg-white p-4 rounded-lg shadow-md mb-4">
+        <h1 class="text-2xl font-bold text-gray-800">Trợ lý Vườn "Synthia"</h1>
+        <p class="text-gray-600">Thiết bị:
+            <span id="device-uid" class="font-medium text-blue-600">ESP32_GARDEN_01</span>
+        </p>
+    </header>
+
+    <div id="chat-box" class="flex-1 bg-white p-4 rounded-lg shadow-md overflow-y-auto mb-4 h-96">
+        <div class="flex justify-start mb-3">
+            <div class="bg-gray-200 text-gray-800 p-3 rounded-lg max-w-xs shadow">
+                <p>Chào bạn, tôi có thể giúp gì cho vườn của bạn? Bạn có thể hỏi tôi "Kiểm tra vườn" hoặc nhấn nút micro để ra lệnh.</p>
+            </div>
+        </div>
+    </div>
+
+    <footer class="bg-white p-4 rounded-lg shadow-md">
+        <p id="mic-status" class="text-sm text-gray-500 text-center h-5 mb-2"></p>
+
+        <div class="flex items-center">
+            <input type="text" id="chat-input" class="flex-1 border border-gray-300 rounded-full py-3 px-5 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Nhập tin nhắn hoặc nhấn mic...">
+
+            <button id="send-btn" class="ml-2 bg-blue-500 hover:bg-blue-600 text-white p-3 rounded-full shadow-md transition duration-200 flex-shrink-0">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                </svg>
+            </button>
+
+            <button id="mic-btn" class="ml-2 bg-red-500 hover:bg-red-600 text-white p-3 rounded-full shadow-md transition duration-200 flex-shrink-0">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                </svg>
+            </button>
+        </div>
+    </footer>
+</div>
+
+<script>
+    // --- 0. Lấy các phần tử DOM ---
+    const chatInput = document.getElementById('chat-input');
+    const sendBtn = document.getElementById('send-btn');
+    const micBtn = document.getElementById('mic-btn');
+    const chatBox = document.getElementById('chat-box');
+    const micStatus = document.getElementById('mic-status');
+    const deviceUid = document.getElementById('device-uid').textContent;
+
+    // --- 1. LOGIC GỬI TIN NHẮN (Bằng Text) ---
+    sendBtn.addEventListener('click', sendMessage);
+    chatInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault(); // Ngăn xuống dòng khi Enter
+            sendMessage();
+        }
+    });
+
+    function sendMessage() {
+        const messageText = chatInput.value.trim();
+        if (messageText === "") return;
+
+        displayMessage(messageText, 'user');
+        callAiService(messageText);
+        chatInput.value = "";
+    }
+
+    // --- 2. LOGIC GỌI API BACKEND (JAVA) ---
+    async function callAiService(message) {
+        // URL này trỏ đến Spring Boot API của bạn
+        // (Chúng ta giả định frontend chạy cùng domain với backend)
+        // Nếu khác domain, bạn cần bật CORS trên Spring Boot
+        const API_URL = `http://localhost:8080/api/v1/ai/chat/${deviceUid}`;
+
+        displayMessage("Synthia đang suy nghĩ...", 'ai', true); // Hiển thị "đang gõ"
+
+        try {
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ message: message }) // Khớp với ChatRequestDTO
+            });
+
+            if (!response.ok) {
+                // Đọc lỗi chi tiết từ server (FastAPI hoặc Spring)
+                let errorDetail = "Lỗi không xác định";
+                try {
+                    const errData = await response.json();
+                    // Ưu tiên 'detail' (từ FastAPI) hoặc 'message' (từ Spring)
+                    errorDetail = errData.detail || errData.message || JSON.stringify(errData);
+                } catch (e) {
+                    errorDetail = response.statusText;
+                }
+                throw new Error(`HTTP ${response.status}: ${errorDetail}`);
+            }
+
+            const aiData = await response.json(); // Khớp với ChatResponseDTO
+            updateThinkingMessage(aiData.response); // Cập nhật tin nhắn "đang gõ"
+
+        } catch (error) {
+            console.error("Lỗi khi gọi AI Service:", error);
+            updateThinkingMessage(`Xin lỗi, tôi gặp lỗi: ${error.message}. Vui lòng thử lại.`);
+        }
+    }
+
+    // --- 3. LOGIC SPEECH-TO-TEXT (WEB SPEECH API) ---
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recognition;
+    let isListening = false;
+
+    if (SpeechRecognition) {
+        recognition = new SpeechRecognition();
+        recognition.continuous = false; // Chỉ nghe 1 câu
+        recognition.lang = 'vi-VN'; // Hỗ trợ Tiếng Việt
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 1;
+
+        // Xử lý khi nhấn nút Mic
+        micBtn.addEventListener('click', () => {
+            if (isListening) {
+                recognition.stop();
+                isListening = false;
+            } else {
+                try {
+                    recognition.start();
+                    isListening = true;
+                } catch(e) {
+                    console.error("Lỗi khi bắt đầu ghi âm (có thể do quyền): ", e);
+                    micStatus.textContent = "Lỗi mic. Hãy cấp quyền.";
+                }
+            }
+        });
+
+        // Khi bắt đầu nghe
+        recognition.onstart = () => {
+            micBtn.classList.add('mic-active');
+            micStatus.textContent = "Tôi đang nghe...";
+        };
+
+        // Khi ngừng nghe
+        recognition.onend = () => {
+            micBtn.classList.remove('mic-active');
+            micStatus.textContent = "";
+            isListening = false;
+        };
+
+        // Khi có kết quả
+        recognition.onresult = (event) => {
+            const transcript = event.results[0][0].transcript;
+            chatInput.value = transcript; // Đặt text vào ô chat
+
+            // Tự động gửi tin nhắn ngay sau khi nhận diện giọng nói
+            setTimeout(sendMessage, 100);
+        };
+
+        // Xử lý lỗi
+        recognition.onerror = (event) => {
+            console.error("Lỗi SpeechRecognition:", event.error);
+            if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+                micStatus.textContent = "Bạn cần cấp quyền truy cập micro.";
+            } else {
+                micStatus.textContent = "Lỗi: " + event.error;
+            }
+            isListening = false;
+        };
+
+    } else {
+        // Ẩn nút mic nếu trình duyệt không hỗ trợ
+        micBtn.style.display = 'none';
+        micStatus.textContent = "Trình duyệt không hỗ trợ Speech-to-Text.";
+    }
+
+
+    // --- 4. HÀM TIỆN ÍCH (HIỂN THỊ CHAT) ---
+
+    // Thêm tin nhắn mới vào cuối
+    function displayMessage(message, sender, isThinking = false) {
+        const messageWrapper = document.createElement('div');
+        messageWrapper.classList.add('flex', 'mb-3');
+
+        const messageBubble = document.createElement('div');
+        messageBubble.classList.add('p-3', 'rounded-lg', 'max-w-xs', 'shadow');
+
+        if (sender === 'user') {
+            messageWrapper.classList.add('justify-end');
+            messageBubble.classList.add('bg-blue-500', 'text-white');
+        } else {
+            messageWrapper.classList.add('justify-start');
+            messageBubble.classList.add('bg-gray-200', 'text-gray-800');
+            if (isThinking) {
+                messageBubble.id = 'thinking-bubble'; // Đặt ID để cập nhật sau
+                messageBubble.innerHTML = `<p class="italic">${message}</p>`; // Chữ nghiêng
+            }
+        }
+
+        if (!isThinking) {
+            messageBubble.innerHTML = `<p>${message}</p>`;
+        }
+
+        messageWrapper.appendChild(messageBubble);
+        chatBox.appendChild(messageWrapper);
+        chatBox.scrollTop = chatBox.scrollHeight; // Tự động cuộn xuống dưới
+    }
+
+    // Cập nhật tin nhắn "đang suy nghĩ..." thành tin nhắn thật
+    function updateThinkingMessage(newMessage) {
+        const thinkingBubble = document.getElementById('thinking-bubble');
+        if (thinkingBubble) {
+            thinkingBubble.innerHTML = `<p>${newMessage}</p>`;
+            thinkingBubble.classList.remove('italic');
+            thinkingBubble.id = ''; // Xóa ID để không bị cập nhật nhầm
+        }
+    }
+
+</script>
+
+</body>
+</html>

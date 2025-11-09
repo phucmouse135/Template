@@ -1,6 +1,21 @@
 version: '3.8'
 
 services:
+  python-ai:
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/docs" ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    build:
+      context: ./AI # Đường dẫn đến thư mục chứa Dockerfile.python và ai_service.py
+      dockerfile: Dockerfile
+    # Không cần 'ports' vì chỉ Java mới gọi nó (gọi nội bộ)
+    environment:
+      - GEMINI_API_KEY=${AIzaSyBTEx5oDoV-FHYZ9EOvjHAZ3al8qQYZENA} # Truyền API key vào
+    networks:
+      default:
   mosquitto:
     image: eclipse-mosquitto
     container_name: mqtt_broker
@@ -9,9 +24,9 @@ services:
       - "1883:1883"
       - "9001:9001"
     volumes:
-      - ./mosquitto/config:/mosquitto/config
-      - ./mosquitto/data:/mosquitto/data
-      - ./mosquitto/log:/mosquitto/log
+      - ./mqtt_broker/mosquitto/config:/mosquitto/config
+      - ./mqtt_broker/mosquitto/data:/mosquitto/data
+      - ./mqtt_broker/mosquitto/log:/mosquitto/log
       - /etc/localtime:/etc/localtime:ro
     networks:
       - default
@@ -24,9 +39,9 @@ services:
       MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: iot_db
     volumes:
-      - ./mysql_data:/var/lib/mysql
+      - ./mqtt_broker/mysql_data:/var/lib/mysql
     ports:
-      - "3306:3306"
+      - "13306:3306"
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 10s
@@ -43,7 +58,7 @@ services:
     ports:
       - "6379:6379"
     volumes:
-      - ./redis_data:/data
+      - ./mqtt_broker/redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -55,7 +70,7 @@ services:
 
   app:
     build:
-      context: ..
+      context: .
       dockerfile: Dockerfile
     image: iot:latest
     container_name: smart_garden_app
@@ -68,10 +83,15 @@ services:
       - SPRING_DATASOURCE_PASSWORD=root
       - SPRING_REDIS_HOST=redis
       - SPRING_REDIS_PORT=6379
+      - MQTT_BROKER_URL=tcp://mqtt-broker:1883
+      - AI_SERVICE_URL=http://python-ai:8000/chat
+        # (Các API Key nên được truyền vào đây)
+      - OPENWEATHERMAP_API_KEY=e2af82a68f3bc2bb28f019259585fdad
     depends_on:
       - mosquitto
       - mysql
       - redis
+      - python-ai
     networks:
       - default
 
