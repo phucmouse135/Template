@@ -28,4 +28,3 @@ mqtt_broker/mysql_data
 mqtt_broker/mosquitto/data/
 mqtt_broker/mosquitto/log
 mqtt_broker/redis_data
-
