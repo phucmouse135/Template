@@ -93,7 +93,7 @@
         // URL này trỏ đến Spring Boot API của bạn
         // (Chúng ta giả định frontend chạy cùng domain với backend)
         // Nếu khác domain, bạn cần bật CORS trên Spring Boot
-        const API_URL = `http://localhost:8080/api/v1/ai/chat/${deviceUid}`;
+        const API_URL = `/api/v1/ai/chat/${deviceUid}`;
 
         displayMessage("Synthia đang suy nghĩ...", 'ai', true); // Hiển thị "đang gõ"
 

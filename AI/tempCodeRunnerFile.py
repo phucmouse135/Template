@@ -1,7 +1,6 @@
 import os
 import uvicorn
 import logging # Thêm import logging
-import json
 from fastapi import FastAPI
 from pydantic import BaseModel, Field, AliasChoices
 from datetime import datetime
@@ -15,7 +14,8 @@ load_dotenv()
 # Lấy API key từ biến môi trường
 try:
     # Sử dụng os.environ.get() an toàn hơn, trả về None nếu không tìm thấy
-    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+    # GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+    GEMINI_API_KEY = "AIzaSyBTEx5oDoV-FHYZ9EOvjHAZ3al8qQYZENA"
     if GEMINI_API_KEY is None:
         raise KeyError
 except KeyError:
@@ -26,23 +26,51 @@ except KeyError:
 genai.configure(api_key=GEMINI_API_KEY)
 
 # --- 2. Định nghĩa "Công cụ" (Tools) ---
-# NOTE: The Google Generative AI Python SDK expects tool/function declarations in
-# a protobuf-compatible format. Constructing that manually here caused repeated
-# proto errors (Schema unknown fields). To avoid proto marshaling incompatibilities
-# and get a working service quickly, we remove the SDK `tools` declaration and
-# instead instruct the model (via prompt) to return a strict JSON structure when
-# it intends to request a tool call. The service then parses that JSON and
-# returns a TOOL_CALL DTO to Java.
-
-# (If you later want to register native function definitions with the SDK,
-# consult the official `google.generativeai` docs / examples for the correct
-# proto-backed API and adapt accordingly.)
-
+tools = [
+    {
+        "name": "getDeviceState",
+        "description": "Lấy trạng thái cảm biến (nhiệt độ, độ ẩm, ánh sáng, độ ẩm đất) và trạng thái điều khiển (bơm, đèn) hiện tại của một thiết bị vườn. Dùng khi người dùng hỏi 'vườn thế nào?', 'kiểm tra vườn', 'nhiệt độ?', v.v.",
+        "parameters": {
+            # (SỬA LỖI SCHEMA: Phải là chữ thường)
+            "type": "OBJECT", 
+            "properties": {
+                "deviceUid": {
+                    "type": "STRING", # (Sửa lỗi)
+                    "description": "Mã UID của thiết bị, ví dụ: ESP32_GARDEN_01"
+                }
+            },
+            "required": ["deviceUid"]
+        }
+    },
+    {
+        "name": "controlDevice",
+        "description": "Bật hoặc Tắt một thiết bị (bơm hoặc đèn). Dùng khi người dùng ra lệnh 'tưới cây', 'bật đèn', 'tắt bơm'.",
+        "parameters": {
+            "type": "OBJECT", # (Sửa lỗi)
+            "properties": {
+                "deviceUid": {
+                    "type": "STRING", # (Sửa lỗi)
+                    "description": "Mã UID của thiết bị, ví dụ: ESP32_GARDEN_01"
+                },
+                "deviceName": {
+                    "type": "STRING", # (Sửa lỗi)
+                    "description": "Tên thiết bị (PUMP hoặc LIGHT)"
+                },
+                "turnOn": {
+                    "type": "BOOLEAN", # (Sửa lỗi)
+                    "description": "Bật (true) hay Tắt (false)"
+                }
+            },
+            "required": ["deviceUid", "deviceName", "turnOn"]
+        }
+    }
+]
 
 # Khởi tạo mô hình Gemini
 model = genai.GenerativeModel(
-    model_name='gemini-2.0-flash',
-    generation_config={"temperature": 0.7}
+    model_name='gemini-2.0-flash', 
+    generation_config={"temperature": 0.7},
+    tools=tools
 )
 
 app = FastAPI(title="Smart Garden AI Service")
@@ -131,18 +159,6 @@ async def handle_chat(request: ChatRequest):
            (ví dụ: "mưa rào", "mưa giông"), HÃY TỪ CHỐI TƯỚI và giải thích lý do.
            (Ví dụ: "Đất đang hơi khô, nhưng dự báo thời tiết báo sắp có mưa,
            vì vậy tôi sẽ không tưới bây giờ để tiết kiệm nước.")
-        
-    IMPORTANT: When you want to perform an action (call a tool), DO NOT embed
-    the action inside natural language. Instead, OUTPUT EXACTLY a JSON object
-    (and nothing else) with this shape:
-
-    {{"response_type":"TOOL_CALL","tool_name":"<name>","arguments":{{...}}}}
-
-    Example:
-    {{"response_type":"TOOL_CALL","tool_name":"controlDevice","arguments":{{"deviceUid":"ESP32_GARDEN_01","deviceName":"PUMP","turnOn":true}}}}
-
-    If you only want to reply with plain text, return normal text (no JSON)
-    or return a JSON object {{"response_type":"TEXT","text":"..."}}.
     """
 
     # Bắt đầu session chat với Gemini
@@ -157,39 +173,23 @@ async def handle_chat(request: ChatRequest):
         # --- 5. Xử lý phản hồi của Gemini ---
         part = response.candidates[0].content.parts[0]
 
-        logging.info("Gemini raw response: %s", repr(response))
-        logging.info("Selected part repr: %s", repr(part))
-
-        # Try to parse the model output as JSON. We expect the model to emit a
-        # JSON object when it intends to call a tool, for example:
-        # {"response_type":"TOOL_CALL","tool_name":"controlDevice","arguments":{...}}
-        # If parsing fails or the object doesn't indicate a tool call, we fall
-        # back to returning the text as a normal TEXT response.
-        text = getattr(part, "text", "") or ""
-        try:
-            parsed = json.loads(text.strip()) if text.strip().startswith("{") else None
-        except Exception as ex:
-            logging.info("Model output is not JSON: %s", ex)
-            parsed = None
-
-        if isinstance(parsed, dict) and parsed.get("response_type") == "TOOL_CALL":
+        if part.function_call:
+            # TRƯỜNG HỢP 2: AI YÊU CẦU GỌI HÀM
+            func_call = part.function_call
+            
             tool_response = ToolCallResponse(
-                tool_name=parsed.get("tool_name"),
-                arguments=parsed.get("arguments", {})
+                tool_name=func_call.name,
+                arguments=dict(func_call.args)
             )
             return ChatResponse(
                 response_type="TOOL_CALL",
                 tool_call=tool_response
             )
         else:
-            # If parsed is a JSON with response_type TEXT and a 'text' field, prefer that.
-            if isinstance(parsed, dict) and parsed.get("response_type") == "TEXT":
-                text_out = parsed.get("text", "")
-            else:
-                text_out = text
+            # TRƯỜN HỢP 1: AI TRẢ LỜI BẰNG TEXT
             return ChatResponse(
                 response_type="TEXT",
-                text_content=text_out
+                text_content=part.text
             )
 
     except Exception as e:

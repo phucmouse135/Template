@@ -49,13 +49,12 @@ public class MqttConfig {
         MqttConnectOptions options = new MqttConnectOptions();
         options.setServerURIs(new String[]{brokerUrl});
 
-//        factory.setConnectionOptions(options);
+        factory.setConnectionOptions(options);
 
         options.setUserName(username);
         options.setPassword(password.toCharArray());
         options.setCleanSession(true); // Đảm bảo session sạch khi kết nối
         options.setAutomaticReconnect(true); // Tự động kết nối lại
-        factory.setConnectionOptions(options);
         // Có thể cấu hình username/password nếu broker yêu cầu
         return factory;
     }

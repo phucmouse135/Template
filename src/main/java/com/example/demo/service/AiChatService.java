@@ -64,10 +64,14 @@ public class AiChatService {
         // 2. TẠO REQUEST GỬI ĐẾN PYTHON
         PythonChatRequest request = new PythonChatRequest(userMessage, deviceUid, gardenContext, weatherContext);
 
+        String targetUrl = pythonApiUrl;
+        if (!targetUrl.endsWith("/chat")) {
+            targetUrl = targetUrl.endsWith("/") ? targetUrl + "chat" : targetUrl + "/chat";
+        }
         // 3. GỌI API PYTHON (FastAPI)
         log.info("Calling Python AI service for device: {}", deviceUid);
         PythonChatResponse response = restClient.post()
-                .uri(pythonApiUrl)
+                .uri(targetUrl)
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(request)
                 .retrieve()

@@ -28,3 +28,10 @@ mqtt_broker/mysql_data
 mqtt_broker/mosquitto/data/
 mqtt_broker/mosquitto/log
 mqtt_broker/redis_data
+AI/venv
+AI/__pycache__/
+
+.env
+/AI/.env
+
+./frontend/node_modules/

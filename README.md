@@ -1,3 +1,120 @@
+ # Smart Garden (Synthia) — Hướng dẫn dự án (Tiếng Việt)
+
+Đây là repository demo cho hệ thống trợ lý vườn "Synthia" gồm backend, dịch vụ AI và frontend.
+
+Cấu trúc chính
+- `src/` — Java Spring Boot backend (API, tích hợp MQTT, quản lý thiết bị)
+- `AI/` — Python FastAPI (dịch vụ AI, trả về JSON khi cần gọi công cụ)
+- `frontend/` — React + Vite (giao diện chat, hỗ trợ micro)
+- `mqtt_broker/` — cấu hình Mosquitto và dữ liệu lưu trữ
+- `docker-compose.yml` — chạy đồng thời backend, AI, MQTT, MySQL, Redis và frontend
+
+Mô tả ngắn
+------------
+Ứng dụng mô phỏng một backend IoT (Spring Boot) giao tiếp với các thiết bị qua MQTT và một trợ lý AI (FastAPI) để xử lý lệnh/ phản hồi. Frontend là một chat UI (React) cho phép người dùng trò chuyện với trợ lý, có thể ra lệnh điều khiển thiết bị (vd: bật bơm) thông qua một JSON "tool call" mà AI trả về.
+
+Chạy nhanh bằng Docker
+----------------------
+Yêu cầu: Docker Desktop hoặc Docker & Docker Compose.
+
+Từ thư mục gốc repo, chạy:
+
+```cmd
+docker-compose up --build -d
+```
+
+Kiểm tra trạng thái các container:
+
+```cmd
+docker-compose ps
+```
+
+Mở frontend trên trình duyệt:
+
+http://localhost:3000
+
+API backend (nếu cần):
+
+http://localhost:8080
+
+Ghi chú:
+- Frontend được serve bằng Nginx trong container và ánh xạ ra cổng `3000`.
+- Backend Spring Boot chạy trên cổng `8080` theo cấu hình `docker-compose.yml`.
+- Dịch vụ AI chỉ cần truy cập nội bộ từ backend: `http://python-ai:8000`.
+
+Chạy từng phần riêng (không dùng Docker)
+------------------------------------
+
+Frontend:
+
+```cmd
+cd frontend
+npm install
+npm run dev
+# Mở URL do Vite in ra (thường http://localhost:5173)
+```
+
+Backend (Spring Boot):
+
+```cmd
+.\mvnw spring-boot:run
+# hoặc build và chạy jar
+.\mvnw -DskipTests package
+java -jar target\*.jar
+```
+
+AI service (FastAPI):
+
+```cmd
+cd AI
+python -m pip install -r requirements.txt
+uvicorn AIService:app --host 0.0.0.0 --port 8000 --reload
+```
+
+Cấu hình quan trọng
+-------------------
+- MQTT (Mosquitto): cấu hình nằm ở `mqtt_broker/mosquitto/config/mosquitto.conf`. Nếu chạy broker cục bộ, đảm bảo đường dẫn `pwfile` và quyền truy cập chính xác.
+- Spring Boot: cấu hình mặc định trong `src/main/resources/application.properties`. Các biến môi trường trong `docker-compose.yml` sẽ ghi đè khi chạy bằng Docker.
+
+Chi tiết frontend
+-----------------
+- Ứng dụng React dùng Vite + Tailwind.
+- Microphone (Speech-to-Text) sử dụng Web Speech API: chỉ hoạt động trên trình duyệt hỗ trợ và với HTTPS ở môi trường production (localhost ok cho dev).
+- Hook `useSpeechRecognition` nằm trong `frontend/src/hooks/` và các component trong `frontend/src/components/`.
+
+Khắc phục lỗi thường gặp
+------------------------
+- Lỗi build frontend (Vite/Rollup):
+    - Kiểm tra `frontend/index.html` đảm bảo import `./src/main.jsx` bằng đường dẫn tương đối.
+    - Chạy `npm run build` ở thư mục `frontend` để xem lỗi chi tiết.
+    - Docker có thể cache layer cũ; nếu đã thay đổi source, chạy `docker-compose build --no-cache frontend` hoặc dùng `--no-cache`.
+
+- Microphone không hoạt động:
+    - Kiểm tra trình duyệt đã cấp quyền micro chưa.
+    - Nếu trình duyệt không hỗ trợ Web Speech API, UI sẽ ẩn nút mic.
+    - Triển khai production cần HTTPS để cấp quyền micro.
+
+- Kết nối MQTT bị từ chối / Unknown host:
+    - Trong Docker Compose, sử dụng tên service (ví dụ `mosquitto`) thay vì `localhost`.
+    - Khi chạy cục bộ (không Docker), dùng `localhost` và đảm bảo Mosquitto đang chạy.
+
+Mẹo phát triển
+--------------
+- Chạy Vite dev server (`npm run dev`) để phát triển frontend nhanh.
+- Bật log debug cho `org.springframework.integration` và Paho trong Spring Boot nếu cần debug MQTT.
+- AI service trả về JSON định dạng khi muốn thực hiện "tool call" — backend sẽ phân tích và thực hiện hành động tương ứng.
+
+Góp ý & đóng góp
+----------------
+1. Tạo nhánh (branch) mới từ `main`.
+2. Viết code, test và commit.
+3. Mở Pull Request mô tả thay đổi.
+
+Liên hệ
+-------
+Nếu cần hỗ trợ thêm, mở issue hoặc liên hệ người phụ trách dự án.
+
+
 # Template
 Đây là một file README.md chi tiết, mô tả toàn bộ dự án IoT Vườn Thông Minh, bao gồm kiến trúc, công nghệ, và hướng dẫn chạy thử.
 
