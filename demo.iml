@@ -11,9 +11,4 @@
       <excludeFolder url="file://$MODULE_DIR$/mqtt_broker/redis_data" />
     </content>
   </component>
-  <component name="FacetManager">
-    <facet type="Python" name="Python">
-      <configuration sdkName="Python 3.11 (demo)" />
-    </facet>
-  </component>
 </module>

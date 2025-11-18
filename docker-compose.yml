@@ -37,9 +37,6 @@ services:
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_USER: root
-      MYSQL_PASSWORD: root
-      MYSQL_DATABASE: railway
     volumes:
       - ./mqtt_broker/mysql_data:/var/lib/mysql
     ports:
