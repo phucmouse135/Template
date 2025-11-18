@@ -31,25 +31,27 @@ services:
     networks:
       - default
 
-#  mysql:
-#    image: mysql:8.0
-#    container_name: mysql_db
-#    restart: unless-stopped
-#    environment:
-#      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-#      MYSQL_DATABASE: railway
-#    volumes:
-#      - ./mqtt_broker/mysql_data:/var/lib/mysql
-#    ports:
-#      - "13306:3306"
-#    healthcheck:
-#      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-#      interval: 10s
-#      timeout: 5s
-#      retries: 5
-#      start_period: 30s
-#    networks:
-#      - default
+  mysql:
+    image: mysql:8.0
+    container_name: mysql_db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_USER: root
+      MYSQL_PASSWORD: root
+      MYSQL_DATABASE: railway
+    volumes:
+      - ./mqtt_broker/mysql_data:/var/lib/mysql
+    ports:
+      - "13306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - default
 
   redis:
     image: redis:7.0
