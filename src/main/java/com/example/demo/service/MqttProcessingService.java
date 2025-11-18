@@ -44,17 +44,10 @@ public class MqttProcessingService {
             // deviceStateService sẽ lấy DTO cũ từ Redis, cập nhật và lưu lại.
             DeviceStateDTO updatedState = deviceStateService.updateStateFromMqtt(deviceUid, messageType, payload);
 
-            // 3. BƯỚC 2: Lưu vào CSDL (MySQL) - (Bất đồng bộ)
-            // Chỉ lưu log nếu đây là tin nhắn Telemetry
             if ("telemetry".equals(messageType.toLowerCase())) {
                 // Phương thức này là @Async, không làm block thread MQTT hiện tại
                 telemetryService.saveTelemetryLog(updatedState);
             }
-
-            // Xử lý thêm các trường hợp khác nếu cần (ví dụ: "status")
-
-            // 4. BƯỚC 3: Đẩy thông báo (WebSocket)
-            // Gửi trạng thái mới nhất đến Dashboard ngay lập tức.
             notificationService.broadcastDeviceUpdate(updatedState);
 
         } catch (Exception e) {

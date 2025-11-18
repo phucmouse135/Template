@@ -33,7 +33,7 @@ public class TelemetryServiceImpl implements TelemetryService {
      * @param updatedState DTO trạng thái thiết bị vừa được cập nhật từ MQTT/Redis.
      */
     @Override
-    @Async // 👈 Đánh dấu phương thức này sẽ chạy bất đồng bộ
+    @Async
     @Transactional // Đảm bảo hoạt động CSDL diễn ra trong một Transaction
     public void saveTelemetryLog(DeviceStateDTO updatedState) {
         String deviceUid = updatedState.getDeviceUid();

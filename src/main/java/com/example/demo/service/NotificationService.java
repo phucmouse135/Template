@@ -33,4 +33,15 @@ public class NotificationService {
             // Xử lý lỗi (ví dụ: client disconnect)
         }
     }
+
+    public void broadcastAIMessage(String aiMessage) {
+        String destination = "/topic/ai/chat";
+        try {
+            // Gửi tin nhắn AI tới topic thong bao cho Admin
+            messagingTemplate.convertAndSend(destination, aiMessage);
+            log.debug("Broadcasted AI message to topic: {}", destination);
+        } catch (Exception e) {
+            log.error("Failed to broadcast AI WebSocket message to {}: {}", destination, e.getMessage());
+        }
+    }
 }

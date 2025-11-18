@@ -84,7 +84,30 @@ Tài liệu này được chuyển từ OpenAPI (v3) JSON cung cấp. Tất cả
 Ví dụ (curl):
 
 ```bash
-curl -H http://localhost:8080/api/v1/devices
+curl http://localhost:8080/api/v1/devices
+```
+
+Response (ví dụ):
+
+```json
+{
+  "code": 200,
+  "message": "OK",
+  "data": [
+    {
+      "id": 1,
+      "device_uid": "ESP32_GARDEN_01",
+      "name": "Máy bơm vườn sau",
+      "createdAt": "2025-11-12T08:00:00Z"
+    },
+    {
+      "id": 2,
+      "device_uid": "ESP32_GARDEN_02",
+      "name": "Cảm biến đất",
+      "createdAt": "2025-11-12T09:00:00Z"
+    }
+  ]
+}
 ```
 
 ---
@@ -106,6 +129,30 @@ Ví dụ body:
 
 - Response 200: ApiResponseDeviceDto (data = DeviceDto)
 
+Ví dụ request + response:
+
+Request (curl):
+
+```bash
+curl -X POST http://localhost:8080/api/v1/devices \
+  -H "Content-Type: application/json" \
+  -d '{"device_uid":"ESP32_GARDEN_02","name":"Máy bơm vườn trước"}'
+```
+
+Response (ví dụ):
+
+```json
+{
+  "code": 200,
+  "message": "Created",
+  "data": {
+    "id": 3,
+    "device_uid": "ESP32_GARDEN_02",
+    "name": "Máy bơm vườn trước",
+    "createdAt": "2025-11-13T10:00:00Z"
+  }
+}
+```
 ---
 
 ### 3) Cập nhật thông tin thiết bị
@@ -124,6 +171,21 @@ curl -X PUT -H "Content-Type: application/json" \
   http://localhost:8080/api/v1/devices/ESP32_GARDEN_01
 ```
 
+Response (ví dụ):
+
+```json
+{
+  "code": 200,
+  "message": "Updated",
+  "data": {
+    "id": 1,
+    "device_uid": "ESP32_GARDEN_01",
+    "name": "Máy bơm sau - updated",
+    "updatedAt": "2025-11-13T11:00:00Z"
+  }
+}
+```
+
 ---
 
 ### 4) Xóa mềm thiết bị (soft delete)
@@ -132,6 +194,24 @@ curl -X PUT -H "Content-Type: application/json" \
 - Path params: deviceUid
 - Response 200: ApiResponseVoid
 
+Ví dụ request + response:
+
+Request (curl):
+
+```bash
+curl -X DELETE http://localhost:8080/api/v1/devices/ESP32_GARDEN_02
+```
+
+Response (ví dụ):
+
+```json
+{
+  "code": 200,
+  "message": "Deleted",
+  "data": {}
+}
+```
+
 ---
 
 ### 5) Khôi phục thiết bị đã xóa mềm
@@ -139,6 +219,24 @@ curl -X PUT -H "Content-Type: application/json" \
 - URL: `/api/v1/devices/{deviceUid}/restore`
 - Path params: deviceUid
 - Response 200: ApiResponseVoid
+
+Ví dụ request + response:
+
+Request (curl):
+
+```bash
+curl -X POST http://localhost:8080/api/v1/devices/ESP32_GARDEN_02/restore
+```
+
+Response (ví dụ):
+
+```json
+{
+  "code": 200,
+  "message": "Restored",
+  "data": {}
+}
+```
 
 ---
 
@@ -163,6 +261,37 @@ Ví dụ body:
 
 Lưu ý: Backend sẽ gửi message tới MQTT topic tương ứng cho thiết bị.
 
+Ví dụ request (curl) và response:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/devices/ESP32_GARDEN_01/command \
+  -H "Content-Type: application/json" \
+  -d '{"action":"SET_PUMP","payload":{"state":"ON"}}'
+```
+
+Ví dụ: backend forward payload MQTT tới topic `devices/ESP32_GARDEN_01/commands`:
+
+MQTT message (payload JSON):
+
+```json
+{
+  "action": "SET_PUMP",
+  "payload": { "state": "ON" },
+  "sentBy": "backend",
+  "timestamp": "2025-11-13T11:05:00Z"
+}
+```
+
+Response HTTP (ví dụ):
+
+```json
+{
+  "code": 200,
+  "message": "Command forwarded",
+  "data": {}
+}
+```
+
 ---
 
 ### 7) Gửi tin nhắn chat đến AI của vườn
@@ -178,6 +307,24 @@ Ví dụ body:
 
 ```json
 { "message": "Bật bơm giúp tôi" }
+```
+
+Ví dụ request + response:
+
+Request (curl):
+
+```bash
+curl -X POST http://localhost:8080/api/v1/ai/chat/ESP32_GARDEN_01 \
+  -H "Content-Type: application/json" \
+  -d '{"message":"Bật bơm giúp tôi"}'
+```
+
+Response (ví dụ):
+
+```json
+{
+  "response": "Đã bật bơm. Tôi sẽ theo dõi trạng thái và thông báo nếu có vấn đề."
+}
 ```
 
 ---
@@ -249,7 +396,6 @@ TelemetryLogDto ví dụ:
 
 ```bash
 curl -X POST http://localhost:8080/api/v1/devices \
-  -H  \
   -H "Content-Type: application/json" \
   -d '{"device_uid":"ESP32_GARDEN_03","name":"Máy bơm vườn trái"}'
 ```
@@ -260,6 +406,40 @@ curl -X POST http://localhost:8080/api/v1/devices \
 curl -X POST http://localhost:8080/api/v1/devices/ESP32_GARDEN_01/command \
   -H "Content-Type: application/json" \
   -d '{"action":"SET_PUMP","payload":{"state":"ON"}}'
+```
+
+---
+
+## WebSocket (STOMP) topics
+
+Hệ thống sử dụng Spring WebSocket (SimpMessagingTemplate) để broadcast các cập nhật realtime.
+
+- ` /topic/device/{deviceUid}`
+  - Mô tả: gửi trạng thái tức thời của một thiết bị đến các client đã subscribe.
+  - Payload: `DeviceStateDTO` (JSON). Ví dụ:
+
+```json
+{
+  "deviceUid": "ESP32_GARDEN_01",
+  "status": "online",
+  "lastSeen": 1699999999000,
+  "controlMode": "auto",
+  "pumpState": "OFF",
+  "sensors": {
+    "temperature": 28.5,
+    "airHumidity": 60.0,
+    "light": 1200.5,
+    "soilMoisture": 45.75
+  }
+}
+```
+
+- `/topic/ai/chat`
+  - Mô tả: gửi thông báo/nhắn tin từ AI tới các client (ví dụ admin dashboard).
+  - Payload: string (hoặc object nếu cần). Ví dụ:
+
+```json
+"Synthia: Đã bật bơm cho thiết bị ESP32_GARDEN_01"
 ```
 
 3) Gọi AI chat

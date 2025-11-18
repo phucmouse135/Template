@@ -80,6 +80,7 @@ services:
     ports:
       - "8080:8080"
     environment:
+      - TZ=Asia/Ho_Chi_Minh
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/iot_db?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
       - SPRING_DATASOURCE_USERNAME=root
       - SPRING_DATASOURCE_PASSWORD=root
@@ -91,18 +92,9 @@ services:
       - OPENWEATHERMAP_API_KEY=e2af82a68f3bc2bb28f019259585fdad
     depends_on:
       - mosquitto
-#      - mysql
+      - mysql
       - redis
       - python-ai
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    ports:
-      - "3000:80"
-    networks:
-      - default
 
 volumes:
   mysql_data:

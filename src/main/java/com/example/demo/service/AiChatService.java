@@ -10,6 +10,7 @@ import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import java.util.Map;
@@ -23,7 +24,6 @@ public class AiChatService {
     private final DeviceStateService deviceStateService; // Lấy context vườn (Redis)
     private final WeatherService weatherService;         // Lấy context thời tiết (API)
     private final CommandService commandService;         // Thực thi lệnh (MQTT)
-    private final DeviceRepository deviceRepository;     // Lấy location của device
 
     // Client để gọi Python
     private final RestClient restClient;
@@ -33,13 +33,11 @@ public class AiChatService {
     public AiChatService(DeviceStateService deviceStateService,
                          WeatherService weatherService,
                          CommandService commandService,
-                         DeviceRepository deviceRepository,
                          RestClient.Builder restClientBuilder,
                          @Value("${ai.service-url}") String pythonApiUrl) {
         this.deviceStateService = deviceStateService;
         this.weatherService = weatherService;
         this.commandService = commandService;
-        this.deviceRepository = deviceRepository;
         this.restClient = restClientBuilder.build();
         this.pythonApiUrl = pythonApiUrl;
     }
@@ -91,6 +89,49 @@ public class AiChatService {
             return response.getTextContent();
         }
     }
+
+    public String analysis(String userMessage, String deviceUid) {
+
+        DeviceStateDTO gardenContext = deviceStateService.getState(deviceUid);
+
+        String location = "Hanoi,VN";
+        AiRequest requestPayload = new AiRequest(userMessage);
+
+
+        WeatherService.WeatherForecast weatherContext = weatherService.getForecast(location);
+
+        // 2. TẠO REQUEST GỬI ĐẾN PYTHON
+        PythonChatRequest request = new PythonChatRequest(userMessage, deviceUid, gardenContext, weatherContext);
+
+        String targetUrl = pythonApiUrl;
+        if (!targetUrl.endsWith("/chat")) {
+            targetUrl = targetUrl.endsWith("/") ? targetUrl + "chat" : targetUrl + "/chat";
+        }
+        // 3. GỌI API PYTHON (FastAPI)
+        log.info("Calling Python AI service for device: {}", deviceUid);
+        PythonChatResponse response = restClient.post()
+                .uri(targetUrl)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(request)
+                .retrieve()
+                .body(PythonChatResponse.class);
+
+        if (response == null) {
+            return "Lỗi: Không nhận được phản hồi từ AI service.";
+        }
+
+        // 4. XỬ LÝ PHẢN HỒI TỪ PYTHON
+        if ("TOOL_CALL".equals(response.getResponseType())) {
+            // TRƯỜNG HỢP 2: AI (Python) yêu cầu Java thực thi
+            log.info("AI requested tool call: {}", response.getToolCall().getToolName() + response.getToolCall().getArguments());
+            return "AI yêu cầu thực thi lệnh: " + response.getToolCall().getToolName() + response.getToolCall().getArguments();
+        } else {
+            // TRƯỜNG HỢP 1: AI (Python) trả lời bằng text
+            return response.getTextContent();
+        }
+    }
+
+
 
     /**
      * Thực thi lệnh gọi hàm (Tool Call) mà Python AI yêu cầu
