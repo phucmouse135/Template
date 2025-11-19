@@ -25,23 +25,11 @@
 
 <div class="container mx-auto max-w-lg p-4 min-h-screen flex flex-col">
 
-    <!-- HEADER ĐÃ ĐƯỢC SỬA: Thêm nút Dashboard -->
-    <header class="bg-white p-4 rounded-lg shadow-md mb-4 flex justify-between items-center">
-        <!-- Phần Tiêu đề bên trái -->
-        <div>
-            <h1 class="text-xl md:text-2xl font-bold text-gray-800">Trợ lý "Synthia"</h1>
-            <p class="text-gray-600 text-sm md:text-base">Thiết bị:
-                <span id="device-uid" class="font-medium text-blue-600">ESP32_GARDEN_01</span>
-            </p>
-        </div>
-
-        <!-- Nút Dashboard bên phải -->
-        <a href="dashboard.html" target="_blank" class="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg shadow transition flex items-center gap-2 text-sm font-medium">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
-            </svg>
-            <span class="hidden md:inline">Dashboard</span>
-        </a>
+    <header class="bg-white p-4 rounded-lg shadow-md mb-4">
+        <h1 class="text-2xl font-bold text-gray-800">Trợ lý Vườn "Synthia"</h1>
+        <p class="text-gray-600">Thiết bị:
+            <span id="device-uid" class="font-medium text-blue-600">ESP32_GARDEN_01</span>
+        </p>
     </header>
 
     <div id="chat-box" class="flex-1 bg-white p-4 rounded-lg shadow-md overflow-y-auto mb-4 h-96">
@@ -103,6 +91,8 @@
     // --- 2. LOGIC GỌI API BACKEND (JAVA) ---
     async function callAiService(message) {
         // URL này trỏ đến Spring Boot API của bạn
+        // (Chúng ta giả định frontend chạy cùng domain với backend)
+        // Nếu khác domain, bạn cần bật CORS trên Spring Boot
         const API_URL = `/api/v1/ai/chat/${deviceUid}`;
 
         displayMessage("Synthia đang suy nghĩ...", 'ai', true); // Hiển thị "đang gõ"
@@ -121,6 +111,7 @@
                 let errorDetail = "Lỗi không xác định";
                 try {
                     const errData = await response.json();
+                    // Ưu tiên 'detail' (từ FastAPI) hoặc 'message' (từ Spring)
                     errorDetail = errData.detail || errData.message || JSON.stringify(errData);
                 } catch (e) {
                     errorDetail = response.statusText;
