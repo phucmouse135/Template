@@ -117,6 +117,15 @@ async def handle_chat(request: ChatRequest):
 
         ## BỐI CẢNH (CONTEXT) THỜI TIẾT (do Java cung cấp):
         {request.weather_context.model_dump_json(indent=2, by_alias=True)}
+        
+        ## QUY TẮC HÀNH ĐỘNG NỘI BỘ QUAN TRỌNG (INTERNAL ACTION RULES):
+        1. **NGƯỠNG TƯỚI NƯỚC (Soil Moisture):**
+           - **Nguy cơ khô:** Nếu 'soil_moisture' ĐANG NHỎ HƠN HOẶC BẰNG 40.
+           - **Quy tắc An Toàn Mưa:** Nếu có nguy cơ khô, KIỂM TRA 'weather_context.description'.
+             Nếu dự báo có mưa sắp xảy ra (ví dụ: "mưa rào", "mưa giông", "mưa nhẹ" trong 3 giờ tới), HÃY TỪ CHỐI TƯỚI và giải thích (TEXT).
+             Nếu không có mưa, HÃY GỌI HÀM (TOOL_CALL) để bật bơm tưới (ví dụ: 5 phút).
+        2. **NGƯỠNG NHIỆT ĐỘ:**
+           - **Quá Nóng:** Nếu 'temperature' ĐANG LỚN HƠN HOẶC BẰNG 35 độ C, HÃY CẢNH BÁO (TEXT) về nguy cơ cây bị sốc nhiệt nếu người dùng hỏi về tình trạng vườn.
 
         ## NHIỆM VỤ CỦA BẠN:
         1. Trả lời thân thiện, lịch sự.
