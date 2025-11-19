@@ -9,6 +9,7 @@ import com.example.demo.repository.TelemetryRepository;
 import com.example.demo.service.TelemetryService;
 import com.example.demo.utils.mapper.TelemetryMapper;
 import jakarta.transaction.Transactional;
+//import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
@@ -77,6 +78,7 @@ public class TelemetryServiceImpl implements TelemetryService {
     }
 
     @Override
+    @Transactional
     public List<TelemetryLogDto> getHistory(String deviceUid, Instant from, Instant to) {
         // Tìm thiết bị theo deviceUid
         Optional<DeviceEntity> deviceOpt = deviceRepository.findByDeviceUid(deviceUid);

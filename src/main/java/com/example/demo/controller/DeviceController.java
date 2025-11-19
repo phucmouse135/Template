@@ -64,11 +64,15 @@ public class DeviceController {
     @GetMapping("/{deviceUid}/history")
     public ResponseEntity<ApiResponse<List<TelemetryLogDto>>> getDeviceHistory(
             @PathVariable String deviceUid,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to) throws AccessDeniedException {
+            @RequestParam String from,
+            @RequestParam String to) throws AccessDeniedException {
+
+        // Parse thủ công an toàn hơn
+        Instant fromInstant = Instant.parse(from);
+        Instant toInstant = Instant.parse(to);
 
         // Cần giả định phương thức này tồn tại trong TelemetryService
-        List<TelemetryLogDto> history = telemetryService.getHistory(deviceUid, from, to);
+        List<TelemetryLogDto> history = telemetryService.getHistory(deviceUid, fromInstant, toInstant);
 
         return ResponseEntity.ok(ApiResponse.<List<TelemetryLogDto>>builder()
                 .code(200)
